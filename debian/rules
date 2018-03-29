@@ -14,3 +14,11 @@ override_dh_auto_configure:
 		-DPULL_TRANSLATIONS=OFF\
 		-DUPDATE_TRANSLATIONS=OFF\
 		-DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+override_dh_auto_install:
+	dh_auto_install
+
+	# Remove inclusion of files already included by lxqt-common
+	rm etc/xdg/lxqt/globalkeyshortcuts.conf
+	rm etc/xdg/autostart/lxqt-globalkeyshortcuts.desktop
+
