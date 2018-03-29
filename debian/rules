@@ -20,5 +20,5 @@ override_dh_auto_install:
 
 	# Remove inclusion of files already included by lxqt-common
 	rm debian/tmp/etc/xdg/lxqt/globalkeyshortcuts.conf
-	rm debian/etc/xdg/autostart/lxqt-globalkeyshortcuts.desktop
+	rm debian/tmp/etc/xdg/autostart/lxqt-globalkeyshortcuts.desktop
 
