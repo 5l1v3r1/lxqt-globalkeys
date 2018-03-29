@@ -48,6 +48,7 @@ extern "C" {
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xproto.h>
+#include <X11/XKBlib.h>
 #undef Bool
 }
 
@@ -170,8 +171,8 @@ private:
 
     void run();
 
-    KeyCode remoteStringToKeycode(const QString &str);
-    QString remoteKeycodeToString(KeyCode keyCode);
+    Core::X11Shortcut remoteStringToKeycode(const QString &str);
+    QString remoteKeycodeToString(KeyCode keyCode, unsigned int mask, unsigned int *mask_out);
     bool remoteXGrabKey(const X11Shortcut &X11shortcut);
     bool remoteXUngrabKey(const X11Shortcut &X11shortcut);
 
@@ -189,6 +190,9 @@ private:
     bool checkX11Error(int level = LOG_NOTICE, uint timeout = 10);
 
     bool waitForX11Error(int level, uint timeout);
+
+    unsigned int getKeySymAndModifiersFromKeyCodeAndString(KeyCode keyCode, size_t length, char *str, KeySym &keySym,
+                                                           unsigned int modifiers) const;
 
 private:
     bool mReady;

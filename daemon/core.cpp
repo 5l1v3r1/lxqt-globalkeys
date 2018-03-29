@@ -1468,6 +1468,7 @@ void Core::run()
                         {
                             bool x11Error = false;
                             KeyCode keyCode = 0;
+                            unsigned int modifiers = 0;
                             size_t length;
                             if (error_t error = readAll(mX11RequestPipe[STDIN_FILENO], &length, sizeof(length)))
                             {
@@ -1491,6 +1492,7 @@ void Core::run()
                                 lockX11Error();
                                 keyCode = XKeysymToKeycode(mDisplay, keySym);
                                 x11Error = checkX11Error();
+                                modifiers = getKeySymAndModifiersFromKeyCodeAndString(keyCode, length, str.data(), keySym, modifiers);
                             }
 
                             signal = x11Error ? 1 : 0;
@@ -1502,20 +1504,30 @@ void Core::run()
                                 break;
                             }
 
-                            if (!x11Error)
-                                if (error_t error = writeAll(mX11ResponsePipe[STDOUT_FILENO], &keyCode, sizeof(keyCode)))
-                                {
+                            if (!x11Error) {
+                                if (error_t error = writeAll(mX11ResponsePipe[STDOUT_FILENO], &keyCode,
+                                                             sizeof(keyCode))) {
                                     log(LOG_CRIT, "Cannot write to X11 response pipe: %s", strerror(error));
                                     close(mX11RequestPipe[STDIN_FILENO]);
                                     mX11EventLoopActive = false;
                                     break;
                                 }
-                        }
+                            }
+                            if (!x11Error) {
+                                if (error_t error = writeAll(mX11ResponsePipe[STDOUT_FILENO], &modifiers,
+                                                             sizeof(modifiers))) {
+                                    log(LOG_CRIT, "Cannot write to X11 response pipe: %s", strerror(error));
+                                    close(mX11RequestPipe[STDIN_FILENO]);
+                                    mX11EventLoopActive = false;
+                                    break;
+                                }
+                            }                        }
                         break;
 
                         case X11_OP_KeycodeToString:
                         {
                             KeyCode keyCode;
+                            unsigned int mask;
                             bool x11Error = false;
                             if (error_t error = readAll(mX11RequestPipe[STDIN_FILENO], &keyCode, sizeof(keyCode)))
                             {
@@ -1524,29 +1536,27 @@ void Core::run()
                                 mX11EventLoopActive = false;
                                 break;
                             }
-                            int keysymsPerKeycode;
+                            if (error_t error = readAll(mX11RequestPipe[STDIN_FILENO], &mask, sizeof(mask)))
+                            {
+                                log(LOG_CRIT, "Cannot read from X11 request pipe: %s", strerror(error));
+                                close(mX11ResponsePipe[STDIN_FILENO]);
+                                mX11EventLoopActive = false;
+                                break;
+                            }
+                            KeySym keySym;
+                            unsigned int mods_rtrn, mask_out;
                             lockX11Error();
-                            KeySym *keySyms = XGetKeyboardMapping(mDisplay, keyCode, 1, &keysymsPerKeycode);
+                            int lookup = XkbLookupKeySym (mDisplay, keyCode, mask, &mods_rtrn, &keySym);
                             x11Error = checkX11Error();
                             char *str = NULL;
 
-                            if (!x11Error)
-                            {
-                                KeySym keySym = 0;
-                                if ((keysymsPerKeycode >= 2) && keySyms[1] && (keySyms[0] >= XK_a) && (keySyms[0] <= XK_z))
-                                {
-                                    keySym = keySyms[1];
-                                }
-                                else if (keysymsPerKeycode >= 1)
-                                {
-                                    keySym = keySyms[0];
-                                }
-
-                                if (keySym)
-                                {
-                                    str = XKeysymToString(keySym);
-                                }
+                            if (!x11Error && lookup) {
+                                str = XKeysymToString(keySym);
+                                log(LOG_DEBUG, "keyCode: %d, keySym: %d, string: %s", keyCode, keySym, str);
                             }
+
+                            unsigned int modifiers = getKeySymAndModifiersFromKeyCodeAndString(keyCode, strlen(str), str, keySym, mask);
+                            mask_out = mask ^ modifiers;
 
                             signal = x11Error ? 1 : 0;
                             if (error_t error = writeAll(mX11ResponsePipe[STDOUT_FILENO], &signal, sizeof(signal)))
@@ -1574,6 +1584,13 @@ void Core::run()
                                 if (length)
                                 {
                                     if (error_t error = writeAll(mX11ResponsePipe[STDOUT_FILENO], str, length))
+                                    {
+                                        log(LOG_CRIT, "Cannot write to X11 response pipe: %s", strerror(error));
+                                        close(mX11RequestPipe[STDIN_FILENO]);
+                                        mX11EventLoopActive = false;
+                                        break;
+                                    }
+                                    if (error_t error = writeAll(mX11ResponsePipe[STDOUT_FILENO], &mask_out, sizeof(mask_out)))
                                     {
                                         log(LOG_CRIT, "Cannot write to X11 response pipe: %s", strerror(error));
                                         close(mX11RequestPipe[STDIN_FILENO]);
@@ -1724,6 +1741,45 @@ void Core::run()
     checkX11Error(0);
 }
 
+unsigned int Core::getKeySymAndModifiersFromKeyCodeAndString(KeyCode keyCode, size_t length, char *str, KeySym &keySym,
+                                                             unsigned int modifiers) const {
+    //This refuses to give the modifiers probably because the symbol is also defined on another key without modifiers
+    //modifiers = XkbKeysymToModifiers(mDisplay, keySym);
+    char *outStr;
+    int mods = 0;
+    do  {
+        switch (mods) {
+            case 0:
+                modifiers = 0;
+                break;
+            case 1:
+                modifiers = ShiftMask;
+                break;
+            case 2:
+                modifiers = Level3Mask;
+                break;
+            case 3:
+                modifiers = ShiftMask | Level3Mask;
+                break;
+        }
+        unsigned int mods_rtrn;
+        bool lookup = XkbLookupKeySym(mDisplay, keyCode, modifiers, &mods_rtrn, &keySym);
+        if (lookup) {
+            outStr = XKeysymToString(keySym);
+
+            log(LOG_DEBUG, "string: %s, keySym: %d, keyCode: %d, modifiers: %d outS: %s", str, keySym, keyCode, modifiers, outStr);
+        }
+    } while (strncmp(str, outStr, length) != 0 && mods++ < 4);
+
+    if (mods == 4) {
+        modifiers = 0;
+    }
+
+    log(LOG_DEBUG, "string: %s, keySym: %d, keyCode: %d, modifiers: %d", str, keySym, keyCode, modifiers);
+
+    return modifiers;
+}
+
 void Core::serviceDisappeared(const QString &sender)
 {
     log(LOG_DEBUG, "serviceDisappeared '%s'", qPrintable(sender));
@@ -1794,21 +1850,23 @@ void Core::serviceDisappeared(const QString &sender)
     }
 }
 
-KeyCode Core::remoteStringToKeycode(const QString &str)
+Core::X11Shortcut Core::remoteStringToKeycode(const QString &str)
 {
+    Core::X11Shortcut result(0,0);
+
     size_t X11Operation = X11_OP_StringToKeycode;
     size_t length = str.length();
     if (error_t error = writeAll(mX11RequestPipe[STDOUT_FILENO], &X11Operation, sizeof(X11Operation)))
     {
         log(LOG_CRIT, "Cannot write to X11 request pipe: %s", strerror(error));
         qApp->quit();
-        return 0;
+        return result;
     }
     if (error_t error = writeAll(mX11RequestPipe[STDOUT_FILENO], &length, sizeof(length)))
     {
         log(LOG_CRIT, "Cannot write to X11 request pipe: %s", strerror(error));
         qApp->quit();
-        return 0;
+        return result;
     }
     if (length)
     {
@@ -1816,7 +1874,7 @@ KeyCode Core::remoteStringToKeycode(const QString &str)
         {
             log(LOG_CRIT, "Cannot write to X11 request pipe: %s", strerror(error));
             qApp->quit();
-            return 0;
+            return result;
         }
     }
     wakeX11Thread();
@@ -1826,11 +1884,11 @@ KeyCode Core::remoteStringToKeycode(const QString &str)
     {
         log(LOG_CRIT, "Cannot read from X11 response pipe: %s", strerror(error));
         qApp->quit();
-        return 0;
+        return result;
     }
     if (signal)
     {
-        return 0;
+        return result;
     }
 
     KeyCode keyCode;
@@ -1838,12 +1896,21 @@ KeyCode Core::remoteStringToKeycode(const QString &str)
     {
         log(LOG_CRIT, "Cannot read from X11 response pipe: %s", strerror(error));
         qApp->quit();
-        return 0;
+        return result;
     }
-    return keyCode;
+    unsigned int modifiers;
+    if (error_t error = readAll(mX11ResponsePipe[STDIN_FILENO], &modifiers, sizeof(modifiers)))
+    {
+        log(LOG_CRIT, "Cannot read from X11 response pipe: %s", strerror(error));
+        qApp->quit();
+        return result;
+    }
+    result.first = keyCode;
+    result.second = modifiers;
+    return result;
 }
 
-QString Core::remoteKeycodeToString(KeyCode keyCode)
+QString Core::remoteKeycodeToString(KeyCode keyCode, unsigned int mask, unsigned int *mask_out)
 {
     QString result;
 
@@ -1855,6 +1922,12 @@ QString Core::remoteKeycodeToString(KeyCode keyCode)
         return QString();
     }
     if (error_t error = writeAll(mX11RequestPipe[STDOUT_FILENO], &keyCode, sizeof(keyCode)))
+    {
+        log(LOG_CRIT, "Cannot write to X11 request pipe: %s", strerror(error));
+        qApp->quit();
+        return QString();
+    }
+    if (error_t error = writeAll(mX11RequestPipe[STDOUT_FILENO], &mask, sizeof(mask)))
     {
         log(LOG_CRIT, "Cannot write to X11 request pipe: %s", strerror(error));
         qApp->quit();
@@ -1892,6 +1965,12 @@ QString Core::remoteKeycodeToString(KeyCode keyCode)
             return QString();
         }
         result = str.data();
+        if (error_t error = readAll(mX11ResponsePipe[STDIN_FILENO], mask_out, sizeof(unsigned int)))
+        {
+            log(LOG_CRIT, "Cannot read from X11 response pipe: %s", strerror(error));
+            qApp->quit();
+            return QString();
+        }
     }
 
     return result;
@@ -2031,13 +2110,14 @@ Core::X11Shortcut Core::ShortcutToX11(const QString &shortcut)
     }
     if (m)
     {
-        KeyCode keyCode = remoteStringToKeycode(parts[m - 1]);
-        if (!keyCode)
+        Core::X11Shortcut resultShortcut = remoteStringToKeycode(parts[m - 1]);
+        if (!resultShortcut.first)
         {
             throw false;
         }
 
-        result.first = keyCode;
+        result.first = resultShortcut.first;
+        result.second |= resultShortcut.second;
     }
 
     return result;
@@ -2046,38 +2126,38 @@ Core::X11Shortcut Core::ShortcutToX11(const QString &shortcut)
 QString Core::X11ToShortcut(const X11Shortcut &X11shortcut)
 {
     QString result;
+    unsigned int maskOut=0;
 
-    if (X11shortcut.second & ShiftMask)
-    {
-        result += "Shift+";
-    }
-    if (X11shortcut.second & ControlMask)
-    {
-        result += "Control+";
-    }
-    if (X11shortcut.second & AltMask)
-    {
-        result += "Alt+";
-    }
-    if (X11shortcut.second & MetaMask)
-    {
-        result += "Meta+";
-    }
-    if (X11shortcut.second & Level3Mask)
-    {
-        result += "Level3+";
-    }
-    if (X11shortcut.second & Level5Mask)
-    {
-        result += "Level5+";
-    }
-
-    QString key = remoteKeycodeToString(X11shortcut.first);
+    QString key = remoteKeycodeToString(X11shortcut.first, X11shortcut.second, &maskOut);
     if (key.isEmpty())
     {
         throw false;
     }
 
+    if (maskOut & ShiftMask)
+    {
+        result += "Shift+";
+    }
+    if (maskOut & ControlMask)
+    {
+        result += "Control+";
+    }
+    if (maskOut & AltMask)
+    {
+        result += "Alt+";
+    }
+    if (maskOut & MetaMask)
+    {
+        result += "Meta+";
+    }
+    if (maskOut & Level3Mask)
+    {
+        result += "Level3+";
+    }
+    if (maskOut & Level5Mask)
+    {
+        result += "Level5+";
+    }
     result += key;
 
     return result;
