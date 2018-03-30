@@ -531,6 +531,7 @@ Core::Core(bool useSyslog, bool minLogLevelSet, int minLogLevel, const QStringLi
                 mAllowGrabMiscSpecial = settings.value(/* General/ */QStringLiteral("AllowGrabMiscSpecial"), mAllowGrabMiscSpecial).toBool();
                 mAllowGrabBaseKeypad = settings.value(/* General/ */QStringLiteral("AllowGrabBaseKeypad"), mAllowGrabBaseKeypad).toBool();
                 mAllowGrabMiscKeypad = settings.value(/* General/ */QStringLiteral("AllowGrabMiscKeypad"), mAllowGrabMiscKeypad).toBool();
+                mAllowGrabPrintable = settings.value(/* General/ */QStringLiteral("AllowGrabPrintable"), mAllowGrabPrintable).toBool();
 
                 const auto sections = settings.childGroups();
                 for(const QString &section : sections)
@@ -628,6 +629,7 @@ Core::Core(bool useSyslog, bool minLogLevelSet, int minLogLevel, const QStringLi
         log(LOG_DEBUG, "AllowGrabMiscSpecial: %s", mAllowGrabMiscSpecial ? "true" : "false");
         log(LOG_DEBUG, "AllowGrabBaseKeypad: %s",  mAllowGrabBaseKeypad  ? "true" : "false");
         log(LOG_DEBUG, "AllowGrabMiscKeypad: %s",  mAllowGrabMiscKeypad  ? "true" : "false");
+        log(LOG_DEBUG, "AllowGrabMiscKeypad: %s",  mAllowGrabPrintable   ? "true" : "false");
 
         mSaveAllowed = true;
         saveConfig();
@@ -761,6 +763,7 @@ void Core::saveConfig()
     settings.setValue(/* General/ */"AllowGrabMiscSpecial", mAllowGrabMiscSpecial);
     settings.setValue(/* General/ */"AllowGrabBaseKeypad",  mAllowGrabBaseKeypad);
     settings.setValue(/* General/ */"AllowGrabMiscKeypad",  mAllowGrabMiscKeypad);
+    settings.setValue(/* General/ */"AllowGrabPrintable",   mAllowGrabPrintable);
 
     ShortcutAndActionById::const_iterator lastShortcutAndActionById = mShortcutAndActionById.constEnd();
     for (ShortcutAndActionById::const_iterator shortcutAndActionById = mShortcutAndActionById.constBegin(); shortcutAndActionById != lastShortcutAndActionById; ++shortcutAndActionById)
@@ -1175,113 +1178,93 @@ void Core::run()
 
                 if (mGrabbingShortcut)
                 {
-//                    log(LOG_DEBUG, "KeyPress %08x %08x", event.xkey.state, event.xkey.keycode);
+                    log(LOG_DEBUG, "KeyPress %08x %08x", event.xkey.state, event.xkey.keycode);
 
                     bool ignoreKey = false;
                     bool cancel = false;
                     QString shortcut;
 
-                    int keysymsPerKeycode;
+                    KeySym keySym = 0;
+                    unsigned int mods_rtrn;
                     lockX11Error();
-                    KeySym *keySyms = XGetKeyboardMapping(mDisplay, event.xkey.keycode, 1, &keysymsPerKeycode);
+                    int lookup = XkbLookupKeySym (mDisplay, static_cast<KeyCode>(event.xkey.keycode), event.xkey.state, &mods_rtrn, &keySym);
                     checkX11Error();
 
-                    if (keysymsPerKeycode)
+                    if (keySym)
                     {
-                        if (keySyms[0])
+                        log(LOG_DEBUG, "keysym %d", keySym);
+                        if (isEscape(keySym, event.xkey.state & allShifts))
                         {
-                            KeySym keySym = 0;
-
-//                            log(LOG_DEBUG, "keysymsPerKeycode %d", keysymsPerKeycode);
-
-//                            for (int i = 0; i < keysymsPerKeycode; ++i)
-//                                log(LOG_DEBUG, "keySym #%d %08x", i, keySyms[i]);
-
-                            if ((keysymsPerKeycode >= 2) && keySyms[1] && (keySyms[0] >= XK_a) && (keySyms[0] <= XK_z))
+                            cancel = true;
+                        }
+                        else
+                        {
+                            if (isModifier(keySym))
                             {
-                                keySym = keySyms[1];
-                            }
-                            else if (keysymsPerKeycode >= 1)
-                            {
-                                keySym = keySyms[0];
-                            }
-
-                            if (keySym)
-                            {
-                                if (isEscape(keySym, event.xkey.state & allShifts))
+                                if (event.type == KeyPress)
                                 {
-                                    cancel = true;
+                                    ignoreKey = true;
+                                    keyReleaseExpected = true;
                                 }
                                 else
                                 {
-                                    if (isModifier(keySym))
-                                    {
-                                        if (event.type == KeyPress)
-                                        {
-                                            ignoreKey = true;
-                                            keyReleaseExpected = true;
-                                        }
-                                        else
-                                        {
-                                            // Only the meta keys are allowed.
+                                    // Only the meta keys are allowed.
 
-                                            if ((event.xkey.state & allShifts) == MetaMask)
-                                            {
-                                                shortcut = XKeysymToString(keySym);
-                                                event.xkey.state &= ~allShifts; // Modifier keys must not use shift states.
-                                            }
-                                            else
-                                            {
-                                                ignoreKey = true;
-                                            }
-                                        }
-                                    }
-                                    else if ((event.type == KeyRelease) || !isAllowed(keySym, event.xkey.state & allShifts))
+                                    if ((event.xkey.state & allShifts) == MetaMask)
                                     {
-                                        ignoreKey = true;
+                                        shortcut = XKeysymToString(keySym);
+                                        event.xkey.state &= ~allShifts; // Modifier keys must not use shift states.
                                     }
                                     else
                                     {
-                                        char *str = XKeysymToString(keySym);
-
-                                        if (str && *str)
-                                        {
-                                            if (event.xkey.state & ShiftMask)
-                                            {
-                                                shortcut += "Shift+";
-                                            }
-                                            if (event.xkey.state & ControlMask)
-                                            {
-                                                shortcut += "Control+";
-                                            }
-                                            if (event.xkey.state & AltMask)
-                                            {
-                                                shortcut += "Alt+";
-                                            }
-                                            if (event.xkey.state & MetaMask)
-                                            {
-                                                shortcut += "Meta+";
-                                            }
-                                            if (event.xkey.state & Level3Mask)
-                                            {
-                                                shortcut += "Level3+";
-                                            }
-                                            if (event.xkey.state & Level5Mask)
-                                            {
-                                                shortcut += "Level5+";
-                                            }
-
-                                            shortcut += str;
-                                        }
+                                        ignoreKey = true;
+                                        log(LOG_DEBUG, "grabShortcut: ignoreKey1 %08x", keySym);
                                     }
                                 }
                             }
+                            else if ((event.type == KeyRelease) || !isAllowed(keySym, event.xkey.state & allShifts))
+                            {
+                                ignoreKey = true;
+                                log(LOG_DEBUG, "grabShortcut: ignoreKey2 %08x", keySym);
+                            }
+                            else
+                            {
+                                char *str = XKeysymToString(keySym);
+                                KeyCode keyCode = XKeysymToKeycode(mDisplay, keySym);
+                                unsigned int modifiers = getKeySymAndModifiersFromKeyCodeAndString(keyCode, strlen(str), str, keySym, event.xkey.state);
+                                unsigned int mask_out = event.xkey.state ^ modifiers;
+
+                                if (str && *str)
+                                {
+                                    if (mask_out & ShiftMask)
+                                    {
+                                        shortcut += "Shift+";
+                                    }
+                                    if (mask_out & ControlMask)
+                                    {
+                                        shortcut += "Control+";
+                                    }
+                                    if (mask_out & AltMask)
+                                    {
+                                        shortcut += "Alt+";
+                                    }
+                                    if (mask_out & MetaMask)
+                                    {
+                                        shortcut += "Meta+";
+                                    }
+                                    if (mask_out & Level3Mask)
+                                    {
+                                        shortcut += "Level3+";
+                                    }
+                                    if (mask_out & Level5Mask)
+                                    {
+                                        shortcut += "Level5+";
+                                    }
+
+                                    shortcut += str;
+                                }
+                            }
                         }
-                    }
-                    if (keySyms)
-                    {
-                        XFree(keySyms);
-                        keySyms = nullptr;
                     }
                     if (!ignoreKey)
                     {
