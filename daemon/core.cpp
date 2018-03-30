@@ -1745,7 +1745,7 @@ unsigned int Core::getKeySymAndModifiersFromKeyCodeAndString(KeyCode keyCode, si
                                                              unsigned int modifiers) const {
     //This refuses to give the modifiers probably because the symbol is also defined on another key without modifiers
     //modifiers = XkbKeysymToModifiers(mDisplay, keySym);
-    char *outStr;
+    char *outStr = NULL;
     int mods = 0;
     do  {
         switch (mods) {
@@ -1769,7 +1769,7 @@ unsigned int Core::getKeySymAndModifiersFromKeyCodeAndString(KeyCode keyCode, si
 
             log(LOG_DEBUG, "string: %s, keySym: %d, keyCode: %d, modifiers: %d outS: %s", str, keySym, keyCode, modifiers, outStr);
         }
-    } while (strncmp(str, outStr, length) != 0 && mods++ < 4);
+    } while (outStr && strncmp(str, outStr, length) != 0 && mods++ < 4);
 
     if (mods == 4) {
         modifiers = 0;
