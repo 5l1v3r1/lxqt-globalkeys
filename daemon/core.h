@@ -59,6 +59,7 @@ class NativeAdaptor;
 class DBusProxy;
 class BaseAction;
 class QDBusServiceWatcher;
+class QDBusInterface;
 
 template<class Key>
 class QOrderedSet : public QMap<Key, Key>
@@ -254,6 +255,8 @@ private:
     bool mShortcutGrabRequested;
 
     bool mSuppressX11ErrorMessages;
+
+    QDBusInterface *mLEDsInterface;
 };
 
 #endif // GLOBAL_ACTION_DAEMON__CORE__INCLUDED

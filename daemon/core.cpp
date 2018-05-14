@@ -32,6 +32,7 @@
 #include <QTimer>
 #include <QDBusConnectionInterface>
 #include <QDBusServiceWatcher>
+#include <QDBusInterface>
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -68,7 +69,8 @@ enum
     X11_OP_XUngrabKeyboard
 };
 
-
+static int xkb_event_base = 0;
+static int xkb_error_base = 0;
 static Core *s_Core = 0;
 
 static const QLatin1String ExecKey("Exec");
@@ -83,6 +85,10 @@ static const QLatin1String firstStr("first");
 static const QLatin1String lastStr("last");
 static const QLatin1String allStr("all");
 static const QLatin1String noneStr("none");
+
+const QString ledsPath = QStringLiteral("/org/thinkglobally/Gemian/LEDs");
+const QString ledsService = QStringLiteral("org.thinkglobally.Gemian.LEDs");
+const QString ledsObject = QStringLiteral("org.thinkglobally.Gemian.LEDs");
 
 int x11ErrorHandler(Display *display, XErrorEvent *errorEvent)
 {
@@ -1112,12 +1118,25 @@ bool Core::isAllowed(KeySym keySym, unsigned int modifiers)
 void Core::run()
 {
     mX11EventLoopActive = true;
+    int maj = XkbMajorVersion;
+    int min = XkbMinorVersion;
+    int opcode;
 
     XInitThreads();
 
+    mLEDsInterface = new QDBusInterface(ledsService, ledsPath, ledsObject, QDBusConnection::systemBus());
+
     int (*oldx11ErrorHandler)(Display * display, XErrorEvent * errorEvent) = XSetErrorHandler(::x11ErrorHandler);
 
-    mDisplay = XOpenDisplay(NULL);
+    mDisplay = XOpenDisplay(nullptr);
+
+    if (!XkbLibraryVersion(&maj, &min)) {
+        log(LOG_ERR, "Couldn't get Xkb library version");
+    }
+    if (!XkbQueryExtension(mDisplay, &opcode, &xkb_event_base, &xkb_error_base, &maj, &min)) {
+        log(LOG_ERR, "XkbQueryExtension error");
+    }
+
     XSynchronize(mDisplay, True);
 
     lockX11Error();
@@ -1129,6 +1148,13 @@ void Core::run()
     mInterClientCommunicationWindow = XCreateSimpleWindow(mDisplay, rootWindow, 0, 0, 1, 1, 0, 0, 0);
 
     XSelectInput(mDisplay, mInterClientCommunicationWindow, StructureNotifyMask);
+
+    if (!XkbSelectEvents(mDisplay, XkbUseCoreKbd, XkbIndicatorStateNotifyMask, XkbIndicatorStateNotifyMask)) {
+        log(LOG_ERR, "XkbSelectEvents");
+    }
+    unsigned int state;
+    XkbGetIndicatorState(mDisplay, XkbUseCoreKbd, &state);
+    log(LOG_DEBUG, "XkbGetIndicatorState %d", state);
 
     if (checkX11Error())
     {
@@ -1152,7 +1178,8 @@ void Core::run()
     {
         bool keyReleaseExpected = false;
 
-        XEvent event;
+        XkbEvent xkbEvent;
+        XEvent &event = xkbEvent.core;
         while (mX11EventLoopActive)
         {
             XPeekEvent(mDisplay, &event);
@@ -1168,6 +1195,12 @@ void Core::run()
                 continue;
             }
             keyReleaseExpected = false; // Close time window for accepting meta keys.
+
+            if (event.type == 85 && xkbEvent.indicators.state != state) {
+                XkbGetIndicatorState(mDisplay, XkbUseCoreKbd, &state);
+                mLEDsInterface->call(QStringLiteral("SetCapsLock"), (bool)(state & 1));
+                log(LOG_DEBUG, "et - indicator state notify %d, %d, %d", state, xkbEvent.indicators.state, xkbEvent.type);
+            }
 
             if (((event.type == KeyPress) || (event.type == KeyRelease)) && mDataMutex.tryLock(0))
             {
@@ -1187,7 +1220,7 @@ void Core::run()
                     KeySym keySym = 0;
                     unsigned int mods_rtrn;
                     lockX11Error();
-                    int lookup = XkbLookupKeySym (mDisplay, static_cast<KeyCode>(event.xkey.keycode), event.xkey.state, &mods_rtrn, &keySym);
+                    int lookup = XkbLookupKeySym(mDisplay, static_cast<KeyCode>(event.xkey.keycode), event.xkey.state, &mods_rtrn, &keySym);
                     checkX11Error();
 
                     if (keySym)
