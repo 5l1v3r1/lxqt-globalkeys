@@ -6,13 +6,13 @@ Uploaders: Alf Gaida <agaida@siduction.org>,
            Andrew Lee (李健秋) <ajqlee@debian.org>
 Section: x11
 Priority: optional
-Build-Depends: debhelper (>= 10),
+Build-Depends: debhelper (>= 11~),
                libkf5windowsystem-dev,
-               liblxqt0-dev (>= 0.11.1),
+               liblxqt0-dev (>= 0.12.0),
                libqt5svg5-dev,
                libqt5x11extras5-dev,
                libx11-dev
-Standards-Version: 3.9.8
+Standards-Version: 4.1.4
 Homepage: https://github.com/gemian/lxqt-globalkeys
 Vcs-Git: https://github.com/gemian/lxqt-globalkeys.git
 
@@ -20,7 +20,12 @@ Package: lxqt-globalkeys
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends}
-Recommends: lxqt-globalkeys-l10n
+Recommends: lxqt-globalkeys-l10n,
+            lxqt-qtplugin,
+            lxqt-session
+Suggests: lxqt | lxqt-core
+Breaks: lxqt-common (<< 0.12.0)
+Replaces: lxqt-common (<< 0.12.0)
 Description: daemon used to register global keyboard shortcuts (appl.)
  Daemon used to register global keyboard shortcuts.
  .
