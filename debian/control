@@ -19,7 +19,8 @@ Vcs-Git: https://github.com/gemian/lxqt-globalkeys.git
 Package: lxqt-globalkeys
 Architecture: any
 Depends: ${misc:Depends},
-         ${shlibs:Depends}
+         ${shlibs:Depends},
+         python3-dbus
 Recommends: lxqt-globalkeys-l10n,
             lxqt-qtplugin,
             lxqt-session

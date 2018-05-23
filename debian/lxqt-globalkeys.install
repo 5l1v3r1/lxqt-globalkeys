@@ -5,6 +5,9 @@ usr/bin/lxqt-globalkeysd
 usr/bin/lxqt-config-globalkeyshortcuts
 usr/share/applications/lxqt-config-globalkeyshortcuts.desktop
 
+#shortcut scripts
+debian/scripts /usr/share/lxqt
+
 # configuration and autostart from lxqt-common
 etc/xdg/lxqt/globalkeyshortcuts.conf
 etc/xdg/autostart/lxqt-globalkeyshortcuts.desktop
