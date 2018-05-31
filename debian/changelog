@@ -1,9 +1,16 @@
-lxqt-globalkeys (0.12.0+gemian1) buster; urgency=medium
+lxqt-globalkeys (0.13.0+gemian) buster; urgency=medium
 
   * Latest lxqt-globalkeys from upstream with some patches for use with gemini keyboard maps.
 
- -- Adam Boardman <adamboardman@gmail.com>  Fri, 29 Mar 2018 20:40:49 +0000
- 
+ -- Adam Boardman <adamboardman@gmail.com>  Fri, 31 May 2018 10:30:49 +0100
+
+lxqt-globalkeys (0.13.0-1) unstable; urgency=medium
+
+  * Cherry-picking new upstream version 0.13.0.
+  * Bumped build dependency liblxqt0-dev to >= 0.13.0~
+
+ -- Alf Gaida <agaida@siduction.org>  Thu, 24 May 2018 21:23:58 +0200
+
 lxqt-globalkeys (0.12.0-4) unstable; urgency=medium
 
   * Bumped compat to 11

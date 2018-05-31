@@ -1,7 +1,28 @@
 
-lxqt-globalkeys-0.12.0 / 2017-10-21
+lxqt-globalkeys-0.13.0 / 2018-05-21
 ===================================
 
+  * Update lxqt-config-globalkeyshortcuts_es.desktop
+  * Spanish translation update
+  * Add shortcut for lockscreen
+  * CMake: Prevent in-source builds
+  * fixed razor-qt -> lxqt and http -> https
+  * Fixed some LXDE mentions
+  * Update zh_CN translation
+  * Triggering shortcuts with meta keys
+  * Register meta keys for shortcuts
+  * Daemon triggers on KeyRelease
+  * free the storage returned by XGetKeyboardMapping
+  * Drop Qt foreach.
+  * Avoid polluting the the x11 shortcut map.
+  * Handle CMake CMP0024
+  * cmake: Handle CMP0071
+  * Fixes wrong radio buttons when changing shortcuts
+
+0.12.0 / 2017-10-21
+===================
+
+  * Release 0.12.0: Update changelog
   * Set patch version
   * Don't export github templates
   * fix deadlock - don't accept keyPress when processing dbus call (#56)
