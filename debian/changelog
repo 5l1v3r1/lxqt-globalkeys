@@ -1,8 +1,31 @@
-lxqt-globalkeys (0.13.0+gemian) buster; urgency=medium
+lxqt-globalkeys (0.14.1+gemian) buster; urgency=medium
 
   * Latest lxqt-globalkeys from upstream with some patches for use with gemini keyboard maps.
 
- -- Adam Boardman <adamboardman@gmail.com>  Fri, 31 May 2018 10:30:49 +0100
+ -- Adam Boardman <adamboardman@gmail.com>  Thu, 18 Apr 2019 21:41:00 +0100
+ 
+lxqt-globalkeys (0.14.1-1) unstable; urgency=medium
+
+  * Cherry-picking new upstream version 0.14.1.
+  * Bumped minimum version liblxqt0-dev (>= 0.14.1~)
+  * Extended the long descriptions a bit
+
+ -- Alf Gaida <agaida@siduction.org>  Sun, 24 Feb 2019 21:28:30 +0100
+
+lxqt-globalkeys (0.14.0-1) unstable; urgency=medium
+
+  * Cherry-picking new upstream version 0.14.0.
+  * Bumped Standards to 4.3.0, no changes needed
+  * Dropped d/compat, use debhelper-compat = 12, no changes needed
+  * Fixed years in d/copyright
+  * Bumped minimum version liblxqt0-dev (>= 0.14.0~)
+  * Removed obsolete PULL_TRANSLATIONS= OFF from dh_auto_configure
+  * Added Build-Depends-Package fields to symbols
+  * Added l10n-package, moved from lxqt-l10n
+  * Added build dependency xserver-xorg-input-libinput-dev
+  * Added d/upstream/metadata
+
+ -- Alf Gaida <agaida@siduction.org>  Sun, 27 Jan 2019 17:37:07 +0100
 
 lxqt-globalkeys (0.13.0-1) unstable; urgency=medium
 

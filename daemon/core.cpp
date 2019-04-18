@@ -1245,7 +1245,7 @@ void Core::run()
 
                                     if ((event.xkey.state & allShifts) == MetaMask)
                                     {
-                                        shortcut = XKeysymToString(keySym);
+                                        shortcut = QString::fromUtf8(XKeysymToString(keySym));
                                         event.xkey.state &= ~allShifts; // Modifier keys must not use shift states.
                                     }
                                     else
@@ -1537,7 +1537,8 @@ void Core::run()
                                     mX11EventLoopActive = false;
                                     break;
                                 }
-                            }                        }
+                            }
+                        }
                         break;
 
                         case X11_OP_KeycodeToString:
