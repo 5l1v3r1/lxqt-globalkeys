@@ -1,12 +1,6 @@
 set(PROJECT_NAME lxqt-config-globalkeyshortcuts)
 project(${PROJECT_NAME})
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release)
-endif()
-
-find_package(KF5WindowSystem REQUIRED QUIET)
-
 set(QT_DBUS_PREFIX "org.qtproject")
 
 set(${PROJECT_NAME}_PATH_TO_DAEMON "${LXQT_GLOBALKEYS_SOURCE_DIR}/daemon")
@@ -113,16 +107,6 @@ lxqt_translate_ts(${PROJECT_NAME}_QM_FILES
     ${${PROJECT_NAME}_TRANSLATABLE}
     INSTALL_DIR
     ${LXQT_TRANSLATIONS_DIR}/${PROJECT_NAME}
-    PULL_TRANSLATIONS
-        ${PULL_TRANSLATIONS}
-    CLEAN_TRANSLATIONS
-        ${CLEAN_TRANSLATIONS}
-    TRANSLATIONS_REPO
-        ${TRANSLATIONS_REPO}
-    TRANSLATIONS_REFSPEC
-        ${TRANSLATIONS_REFSPEC}
-    REPO_SUBDIR
-        "lxqt-globalkeys/${PROJECT_NAME}"
 )
 
 lxqt_app_translation_loader(${PROJECT_NAME}_QM_LOADER ${PROJECT_NAME})
@@ -149,6 +133,14 @@ set(${PROJECT_NAME}_ALL_FILES
 )
 
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_ALL_FILES})
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+        "QT_USE_QSTRINGBUILDER"
+        "QT_NO_CAST_FROM_ASCII"
+        "QT_NO_CAST_TO_ASCII"
+        "QT_NO_URL_CAST_FROM_STRING"
+        "QT_NO_CAST_FROM_BYTEARRAY"
+)
 target_link_libraries(${PROJECT_NAME} KF5::WindowSystem lxqt)
 
 install(TARGETS

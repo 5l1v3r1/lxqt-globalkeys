@@ -1,5 +1,9 @@
-cmake_minimum_required(VERSION 3.0.2 FATAL_ERROR)
-
+cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
+# CMP0000: Call the cmake_minimum_required() command at the beginning of the top-level
+# CMakeLists.txt file even before calling the project() command.
+# The cmake_minimum_required(VERSION) command implicitly invokes the cmake_policy(VERSION)
+# command to specify that the current project code is written for the given range of CMake
+# versions.
 project(lxqt-globalkeys)
 
 # additional cmake files
@@ -11,24 +15,26 @@ if(NOT CMAKE_BUILD_TYPE)
      set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(LXQTBT_MINIMUM_VERSION "0.5.0")
+set(KF5_MINIMUM_VERSION "5.36.0")
+set(LXQT_MINIMUM_VERSION "0.14.1")
+set(QT_MINIMUM_VERSION "5.7.1")
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt5Widgets REQUIRED)
-find_package(Qt5DBus REQUIRED)
-find_package(Qt5LinguistTools REQUIRED)
-find_package(lxqt-build-tools ${LXQTBT_MINIMUM_VERSION} REQUIRED)
-find_package(lxqt REQUIRED)
+find_package(Qt5DBus ${QT_MINIMUM_VERSION} REQUIRED)
+find_package(Qt5LinguistTools ${QT_MINIMUM_VERSION} REQUIRED)
+find_package(Qt5Widgets ${QT_MINIMUM_VERSION} REQUIRED)
+find_package(KF5WindowSystem ${KF5_MINIMUM_VERSION} REQUIRED)
+find_package(lxqt ${LXQT_MINIMUM_VERSION} REQUIRED)
 
-
-# Patch Version
-set(LXQT_GLOBALKEYS_PATCH_VERSION 0)
-
-set(LXQT_GLOBALKEYS_VERSION ${LXQT_MAJOR_VERSION}.${LXQT_MINOR_VERSION}.${LXQT_GLOBALKEYS_PATCH_VERSION})
+# Version
+set(LXQT_GLOBALKEYS_MAJOR_VERSION 0)
+set(LXQT_GLOBALKEYS_MINOR_VERSION 14)
+set(LXQT_GLOBALKEYS_PATCH_VERSION 1)
+set(LXQT_GLOBALKEYS_VERSION ${LXQT_GLOBALKEYS_MAJOR_VERSION}.${LXQT_GLOBALKEYS_MINOR_VERSION}.${LXQT_GLOBALKEYS_PATCH_VERSION})
 add_definitions("-DLXQT_GLOBALKEYS_VERSION=\"${LXQT_GLOBALKEYS_VERSION}\"")
 
 include(LXQtPreventInSourceBuilds)
@@ -39,8 +45,6 @@ include(LXQtCompilerSettings NO_POLICY_SCOPE)
 
 include(GNUInstallDirs) # Standard directories for installation
 include(CMakePackageConfigHelpers)
-
-add_definitions(-DQT_NO_FOREACH)
 
 set(LXQT_GLOBALKEYS_LIBRARY_NAME lxqt-globalkeys)
 set(LXQT_GLOBALKEYS_UI_LIBRARY_NAME lxqt-globalkeys-ui)
